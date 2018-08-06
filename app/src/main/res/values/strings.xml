@@ -3,4 +3,6 @@
     <string name="button">Button</string>
     <string name="click_aca">CLICK ACA</string>
     <string name="title_activity_maps">Map</string>
+    <string name="facebook_app_id">265978744199189</string>
+    <string name="fb_login_protocol_scheme">fb265978744199189</string>
 </resources>

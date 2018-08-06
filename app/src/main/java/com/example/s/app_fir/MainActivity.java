@@ -1,136 +1,135 @@
 package com.example.s.app_fir;
 
-import android.app.Dialog;
-import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
-import android.view.LayoutInflater;
-import android.view.Menu;
-import android.view.MenuItem;
-import android.view.View;
-import android.view.ViewGroup;
-import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
-import android.widget.Button;
-import android.widget.ImageView;
-import android.widget.ListView;
-import android.widget.TextView;
+import android.util.Log;
 import android.widget.Toast;
 
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.ValueEventListener;
-
-import java.util.ArrayList;
-import java.util.List;
+import com.facebook.AccessToken;
+import com.facebook.CallbackManager;
+import com.facebook.FacebookCallback;
+import com.facebook.FacebookException;
+import com.facebook.login.LoginResult;
+import com.facebook.login.widget.LoginButton;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.firebase.auth.AuthCredential;
+import com.google.firebase.auth.AuthResult;
+import com.google.firebase.auth.FacebookAuthProvider;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 
 
 public class MainActivity extends AppCompatActivity {
 
-    private DatabaseReference mDatabase;
-    private ArrayList<String> data = new ArrayList<String>();
-    private ArrayList<String> Ubicacion = new ArrayList<String>();
-    ArrayAdapter<String> adapter;
-    ListView lv;
-    Estacionamiento estacionamiento; ///////
 
+    private CallbackManager mCallbackManager;
+    private FirebaseAuth mAuth;
+    private GoogleApiClient googleApiClient;
+
+    private static final String TAG = "FACELOG";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
 
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.auth);
 
-        mDatabase = FirebaseDatabase.getInstance().getReference("Estacionamientos"); //referencia a root
+        // Initialize Facebook Login button
+        mCallbackManager = CallbackManager.Factory.create();
 
-        lv = (ListView) findViewById(R.id.listview);
-        estacionamiento = new Estacionamiento(); //empieza vacio
-        adapter = new MyListAdapter(this, R.layout.esta_info2, data);
-        lv.setAdapter(adapter);
+        //Initilize Firebase Auth
+        mAuth = FirebaseAuth.getInstance();
+
+        //Initialize Google Login Button
 
 
-        mDatabase.addValueEventListener(new ValueEventListener() {
+        LoginButton loginButton = findViewById(R.id.button_facebook_login);
+        loginButton.setReadPermissions("email", "public_profile");
+        loginButton.registerCallback(mCallbackManager, new FacebookCallback<LoginResult>() {
             @Override
-            public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-
-                data.clear();
-                Ubicacion.clear();
-
-                //cambios del childre user01, user02, user03
-                for (DataSnapshot ds : dataSnapshot.getChildren()){
-
-                    //adquirimos todos los user data
-                    estacionamiento = ds.getValue(Estacionamiento.class);
-
-                    Ubicacion.add(estacionamiento.getUbicacion());
-
-                    data.add("\n Nombre: " + estacionamiento.getNombre().toString() + "\n"  +
-                            " Lugares totales: " + estacionamiento.getLugaresTotales().toString() + "\n"  +
-                            " Lugares disponibles: " + estacionamiento.getLugaresDisponibles().toString() + "\n\n" );
-                }
-
-                lv.setAdapter(adapter);
-
+            public void onSuccess(LoginResult loginResult) {
+                Log.d(TAG, "facebook:onSuccess:" + loginResult);
+                handleFacebookAccessToken(loginResult.getAccessToken());
             }
 
             @Override
-            public void onCancelled(@NonNull DatabaseError databaseError) {
+            public void onCancel() {
+                Log.d(TAG, "facebook:onCancel");
+                // ...
+            }
 
+            @Override
+            public void onError(FacebookException error) {
+                Log.d(TAG, "facebook:onError", error);
+                // ...
             }
         });
 
-        }
+
+    }
 
 
-    private class MyListAdapter extends ArrayAdapter<String> {
-        private int layout;
-        private List<String> mObjects;
+    @Override
+    public void onStart() {
+        super.onStart();
+        // Check if user is signed in (non-null) and update UI accordingly.
+        FirebaseUser currentUser = mAuth.getCurrentUser();
 
-        private MyListAdapter(Context context, int resource, List<String> objects) {
-            super(context, resource, objects);
-            mObjects = objects;
-            layout = resource;
-        }
+        if(currentUser != null ){
+            updateUI(  );
 
-        @Override
-        public View getView(final int position, View convertView, ViewGroup parent) {
-
-            ViewHolder mainViewholder = null;
-            if(convertView == null) {
-                LayoutInflater inflater = LayoutInflater.from(getContext());
-                convertView = inflater.inflate(layout, parent, false);
-                ViewHolder viewHolder = new ViewHolder();
-                viewHolder.title = (TextView) convertView.findViewById(R.id.list_item_text);
-                viewHolder.button = (Button) convertView.findViewById(R.id.list_item_btn);
-                convertView.setTag(viewHolder);
-            }
-            mainViewholder = (ViewHolder) convertView.getTag();
-
-            mainViewholder.button.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View v) {
-                    //Toast.makeText(getContext(), "Button was clicked for list item " + position, Toast.LENGTH_SHORT).show();
-                    Intent intent = new Intent(MainActivity.this, MapsActivity.class);
-                    //paso de informacion a la otra activity
-                    intent.putExtra("posicion", position);
-                    intent.putExtra("ubicacion", Ubicacion.get(position));
-                    startActivity(intent);
-                }
-            });
-            mainViewholder.title.setText(getItem(position));
-
-            return convertView;
         }
     }
-    public class ViewHolder {
 
-        TextView title;
-        Button button;
+    private void updateUI() {
+
+        Toast.makeText(MainActivity.this, "Login correcto ", Toast.LENGTH_LONG).show();
+
+         Intent fireIntent = new Intent(MainActivity.this, FireActivity.class);
+         startActivity(fireIntent);
+         finish();
+
     }
+
+    private void handleFacebookAccessToken(AccessToken token) {
+        Log.d(TAG, "handleFacebookAccessToken:" + token);
+
+        AuthCredential credential = FacebookAuthProvider.getCredential(token.getToken());
+        mAuth.signInWithCredential(credential)
+                .addOnCompleteListener(this, new OnCompleteListener<AuthResult>() {
+                    @Override
+                    public void onComplete(@NonNull com.google.android.gms.tasks.Task<AuthResult> task) {
+                        if (task.isSuccessful()) {
+                            // Sign in success, update UI with the signed-in user's information
+                            Log.d(TAG, "signInWithCredential:success");
+                            FirebaseUser user = mAuth.getCurrentUser();
+                            updateUI();
+                        } else {
+                            // If sign in fails, display a message to the user.
+                            Log.w(TAG, "signInWithCredential:failure", task.getException());
+                            Toast.makeText(MainActivity.this, "Authentication failed.",
+                                    Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                });
+
+    }
+
+
+    @Override
+        protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+            super.onActivityResult(requestCode, resultCode, data);
+
+            // Pass the activity result back to the Facebook SDK
+            mCallbackManager.onActivityResult(requestCode, resultCode, data);
+        };
+
+
+
+
 }
 
 
