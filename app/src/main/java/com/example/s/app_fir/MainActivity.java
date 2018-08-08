@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.View;
 import android.widget.Toast;
 
 import com.facebook.AccessToken;
@@ -13,6 +14,12 @@ import com.facebook.FacebookCallback;
 import com.facebook.FacebookException;
 import com.facebook.login.LoginResult;
 import com.facebook.login.widget.LoginButton;
+import com.google.android.gms.auth.api.Auth;
+import com.google.android.gms.auth.api.signin.GoogleSignIn;
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
+import com.google.android.gms.auth.api.signin.GoogleSignInResult;
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.SignInButton;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.firebase.auth.AuthCredential;
@@ -22,14 +29,17 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements GoogleApiClient.OnConnectionFailedListener {
 
 
     private CallbackManager mCallbackManager;
     private FirebaseAuth mAuth;
     private GoogleApiClient googleApiClient;
+    private SignInButton singInButton;
 
     private static final String TAG = "FACELOG";
+    private static final int SING_IN_CODE = 777;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -43,7 +53,26 @@ public class MainActivity extends AppCompatActivity {
         //Initilize Firebase Auth
         mAuth = FirebaseAuth.getInstance();
 
+        //Object options google auth
+        GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                .requestEmail()
+                .build();
+
         //Initialize Google Login Button
+        googleApiClient = new GoogleApiClient.Builder(this)
+                .enableAutoManage(this, this)
+                .addApi(Auth.GOOGLE_SIGN_IN_API, gso)
+                .build();
+
+        singInButton = (SignInButton) findViewById(R.id.signInGoogle);
+
+        singInButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = Auth.GoogleSignInApi.getSignInIntent(googleApiClient);
+                startActivityForResult(intent, 777);
+            }
+        });
 
 
         LoginButton loginButton = findViewById(R.id.button_facebook_login);
@@ -86,9 +115,10 @@ public class MainActivity extends AppCompatActivity {
 
     private void updateUI() {
 
-        Toast.makeText(MainActivity.this, "Login correcto ", Toast.LENGTH_LONG).show();
+       // Toast.makeText(MainActivity.this, "Login correcto ", Toast.LENGTH_LONG).show();
 
          Intent fireIntent = new Intent(MainActivity.this, FireActivity.class);
+         fireIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_CLEAR_TASK | Intent.FLAG_ACTIVITY_NEW_TASK);
          startActivity(fireIntent);
          finish();
 
@@ -122,10 +152,32 @@ public class MainActivity extends AppCompatActivity {
     @Override
         protected void onActivityResult(int requestCode, int resultCode, Intent data) {
             super.onActivityResult(requestCode, resultCode, data);
-
             // Pass the activity result back to the Facebook SDK
-            mCallbackManager.onActivityResult(requestCode, resultCode, data);
-        };
+            if(requestCode == 777){ //GOOGLE
+                GoogleSignInResult result = Auth.GoogleSignInApi.getSignInResultFromIntent(data);
+                handleSignInResultGoogle(result);
+            } else { //FACE
+                mCallbackManager.onActivityResult(requestCode, resultCode, data);
+            }
+    }
+
+    private void handleSignInResultGoogle(GoogleSignInResult result) {
+
+            if (result.isSuccess()){
+                updateUI();
+            } else {
+                Toast.makeText(this, "Error de login", Toast.LENGTH_SHORT).show();
+            }
+
+
+    }
+
+    ;
+
+    @Override //para google
+    public void onConnectionFailed(@NonNull ConnectionResult connectionResult) {
+
+    }
 
 
 
